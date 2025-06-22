@@ -1,0 +1,31 @@
+# Firebase 設定サンプル（.envファイルとして使用してください）
+
+# Firebase 設定
+FIREBASE_PROJECT_ID=mitsumore-app-80c1f
+FIREBASE_AUTH_DOMAIN=mitsumore-app-80c1f.firebaseapp.com
+FIREBASE_DATABASE_URL=https://mitsumore-app-80c1f-default-rtdb.asia-southeast1.firebasedatabase.app
+FIREBASE_STORAGE_BUCKET=mitsumore-app-80c1f.firebasestorage.app
+
+# API設定
+FIREBASE_API_KEY_WEB=your_web_api_key_here
+FIREBASE_API_KEY_ANDROID=your_android_api_key_here
+FIREBASE_API_KEY_IOS=your_ios_api_key_here
+
+# メッセージング
+FIREBASE_MESSAGING_SENDER_ID=740356200699
+
+# アプリID
+FIREBASE_APP_ID_WEB=your_web_app_id_here
+FIREBASE_APP_ID_ANDROID=your_android_app_id_here
+FIREBASE_APP_ID_IOS=your_ios_app_id_here
+
+# Analytics
+FIREBASE_MEASUREMENT_ID_WEB=your_measurement_id_here
+
+# 開発環境設定
+FLUTTER_ENV=development
+DEBUG_MODE=true
+
+# プロダクション環境設定
+# FLUTTER_ENV=production
+# DEBUG_MODE=false 

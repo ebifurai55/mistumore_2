@@ -1,0 +1,45 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // プロフィール画像
+    match /profile_images/{userId} {
+      // ユーザーは自分のプロフィール画像のみ読み書き可能
+      // 他のユーザーは読み取りのみ可能（プロフィール表示用）
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 依頼画像
+    match /request_images/{requestId}/{fileName} {
+      // 認証済みユーザーは読み取り可能
+      // 認証済みユーザーは書き込み可能（実際の所有者チェックはアプリ側で実装）
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // 見積もり関連ファイル
+    match /quote_files/{quoteId}/{fileName} {
+      // 認証済みユーザーは読み取り可能
+      // 認証済みユーザーは書き込み可能（実際の所有者チェックはアプリ側で実装）
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // 契約関連ファイル
+    match /contract_files/{contractId}/{fileName} {
+      // 認証済みユーザーは読み取り可能
+      // 認証済みユーザーは書き込み可能
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // その他のファイル
+    match /{allPaths=**} {
+      // 認証済みユーザーのみアクセス可能
+      // ファイルサイズ制限: 10MB
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                  request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+} 

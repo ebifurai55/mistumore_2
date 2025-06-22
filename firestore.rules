@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ユーザーコレクション
+    match /users/{userId} {
+      // ユーザーは自分のデータのみ読み書き可能
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 依頼コレクション
+    match /requests/{requestId} {
+      // 認証済みユーザーは全ての依頼を読み取り可能（案件閲覧用）
+      allow read: if request.auth != null;
+      
+      // 依頼者のみ自分の依頼を作成・更新・削除可能
+      allow create: if request.auth != null && 
+                   request.auth.uid == resource.data.clientId;
+      allow update, delete: if request.auth != null && 
+                           request.auth.uid == resource.data.clientId;
+    }
+    
+    // 見積もりコレクション
+    match /quotes/{quoteId} {
+      // 認証済みユーザーは見積もりを読み取り可能
+      allow read: if request.auth != null;
+      
+      // 専門家は見積もりを作成可能
+      allow create: if request.auth != null && 
+                   request.auth.uid == resource.data.professionalId;
+      
+      // 専門家は自分の見積もりを更新可能
+      // 依頼者は見積もりのステータスを更新可能（承諾・拒否）
+      allow update: if request.auth != null && 
+                   (request.auth.uid == resource.data.professionalId ||
+                    request.auth.uid == getRequestClientId(resource.data.requestId));
+      
+      // 専門家は自分の見積もりを削除可能
+      allow delete: if request.auth != null && 
+                   request.auth.uid == resource.data.professionalId;
+    }
+    
+    // 契約メッセージコレクション
+    match /contract_messages/{messageId} {
+      // 認証済みユーザーはメッセージを読み取り可能
+      allow read: if request.auth != null;
+      
+      // 認証済みユーザーはメッセージを作成可能
+      allow create: if request.auth != null && 
+                   request.auth.uid == resource.data.senderId;
+      
+      // メッセージの更新・削除は送信者のみ可能
+      allow update, delete: if request.auth != null && 
+                           request.auth.uid == resource.data.senderId;
+    }
+    
+    // ヘルパー関数：依頼のクライアントIDを取得
+    function getRequestClientId(requestId) {
+      return get(/databases/$(database)/documents/requests/$(requestId)).data.clientId;
+    }
+    
+    // その他のコレクションは認証済みユーザーのみアクセス可能
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+} 
