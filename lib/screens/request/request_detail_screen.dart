@@ -49,6 +49,24 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       appBar: AppBar(
         title: Text(widget.request.title),
         actions: [
+          // 取り消しボタン（依頼者のみ、募集中または見積もり受信中のみ）
+          Consumer<UserProvider>(
+            builder: (context, userProvider, child) {
+              final canCancel = userProvider.currentUser?.uid == widget.request.clientId &&
+                  (widget.request.status == RequestStatus.open || 
+                   widget.request.status == RequestStatus.quoted);
+              
+              if (!canCancel) {
+                return const SizedBox.shrink();
+              }
+              
+              return IconButton(
+                icon: const Icon(Icons.cancel_outlined),
+                onPressed: () => _showCancelDialog(),
+                tooltip: '依頼を取り消す',
+              );
+            },
+          ),
           Consumer<UserProvider>(
             builder: (context, userProvider, child) {
               return Padding(
@@ -455,5 +473,82 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('「$reply」を送信しました')),
     );
+  }
+
+  void _showCancelDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('依頼を取り消しますか？'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('この操作は取り消すことができません。'),
+            SizedBox(height: 8),
+            Text('• 受信済みの見積もりはすべてキャンセルされます'),
+            Text('• 専門家に通知が送信されます'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _cancelRequest();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('取り消す'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelRequest() async {
+    try {
+      // ローディング表示
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      await _databaseService.cancelRequest(
+        widget.request.id,
+        'Client cancelled the request',
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(); // ローディング閉じる
+        Navigator.of(context).pop(); // 詳細画面を閉じる
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('依頼を取り消しました'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // ローディング閉じる
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('エラーが発生しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

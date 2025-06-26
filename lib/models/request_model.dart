@@ -16,6 +16,8 @@ class RequestModel {
   final DateTime updatedAt;
   final String? selectedQuoteId;
   final List<String> requirements;
+  final DateTime? cancelledAt;
+  final String? cancellationReason;
 
   RequestModel({
     required this.id,
@@ -32,6 +34,8 @@ class RequestModel {
     required this.updatedAt,
     this.selectedQuoteId,
     this.requirements = const [],
+    this.cancelledAt,
+    this.cancellationReason,
   });
 
   factory RequestModel.fromMap(Map<String, dynamic> map) {
@@ -56,6 +60,8 @@ class RequestModel {
       updatedAt: DateTime.parse(map['updatedAt']),
       selectedQuoteId: map['selectedQuoteId'],
       requirements: List<String>.from(map['requirements'] ?? []),
+      cancelledAt: map['cancelledAt'] != null ? DateTime.parse(map['cancelledAt']) : null,
+      cancellationReason: map['cancellationReason'],
     );
   }
 
@@ -75,6 +81,8 @@ class RequestModel {
       'updatedAt': updatedAt.toIso8601String(),
       'selectedQuoteId': selectedQuoteId,
       'requirements': requirements,
+      'cancelledAt': cancelledAt?.toIso8601String(),
+      'cancellationReason': cancellationReason,
     };
   }
 
@@ -92,6 +100,8 @@ class RequestModel {
     DateTime? updatedAt,
     String? selectedQuoteId,
     List<String>? requirements,
+    DateTime? cancelledAt,
+    String? cancellationReason,
   }) {
     return RequestModel(
       id: id ?? this.id,
@@ -108,6 +118,8 @@ class RequestModel {
       updatedAt: updatedAt ?? this.updatedAt,
       selectedQuoteId: selectedQuoteId ?? this.selectedQuoteId,
       requirements: requirements ?? this.requirements,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 }

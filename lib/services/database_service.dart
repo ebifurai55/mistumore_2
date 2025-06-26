@@ -87,6 +87,38 @@ class DatabaseService {
     }
   }
 
+  Future<void> cancelRequest(String requestId, String cancellationReason) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // Update request status to cancelled
+        final requestRef = _requestsCollection.doc(requestId);
+        transaction.update(requestRef, {
+          'status': 'cancelled',
+          'cancellationReason': cancellationReason,
+          'cancelledAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+
+        // Cancel all pending quotes for this request
+        final quotesSnapshot = await _quotesCollection
+            .where('requestId', isEqualTo: requestId)
+            .where('status', isEqualTo: 'pending')
+            .get();
+
+        for (final doc in quotesSnapshot.docs) {
+          transaction.update(doc.reference, {
+            'status': 'cancelled',
+            'cancellationReason': 'Request was cancelled by client',
+            'cancelledAt': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+        }
+      });
+    } catch (e) {
+      throw e;
+    }
+  }
+
   Future<RequestModel?> getRequest(String requestId) async {
     try {
       final doc = await _requestsCollection.doc(requestId).get();
@@ -195,6 +227,54 @@ class DatabaseService {
         .map((snapshot) => snapshot.docs
             .map((doc) => QuoteModel.fromMap(doc.data() as Map<String, dynamic>))
             .toList());
+  }
+
+  Stream<List<QuoteModel>> getQuotesForClient(String clientId) async* {
+    // まず、クライアントの依頼を取得
+    final requestsSnapshot = await _requestsCollection
+        .where('clientId', isEqualTo: clientId)
+        .get();
+    
+    final requestIds = requestsSnapshot.docs.map((doc) => doc.id).toList();
+    
+    if (requestIds.isEmpty) {
+      yield [];
+      return;
+    }
+    
+    // 依頼IDのリストを使って見積もりを取得
+    // Firestoreのin演算子は最大10個までなので、分割して処理
+    List<QuoteModel> allQuotes = [];
+    
+    for (int i = 0; i < requestIds.length; i += 10) {
+      final batchIds = requestIds.skip(i).take(10).toList();
+      
+      await for (final snapshot in _quotesCollection
+          .where('requestId', whereIn: batchIds)
+          .orderBy('createdAt', descending: true)
+          .snapshots()) {
+        final quotes = snapshot.docs
+            .map((doc) => QuoteModel.fromMap(doc.data() as Map<String, dynamic>))
+            .toList();
+        
+        // バッチごとの結果をマージ
+        if (i == 0) {
+          allQuotes = quotes;
+        } else {
+          // 重複を避けて追加
+          for (final quote in quotes) {
+            if (!allQuotes.any((q) => q.id == quote.id)) {
+              allQuotes.add(quote);
+            }
+          }
+          // 日付でソート
+          allQuotes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        }
+        
+        yield allQuotes;
+        break; // 最初のバッチのみ処理
+      }
+    }
   }
 
   Future<void> acceptQuote(String quoteId, String requestId) async {

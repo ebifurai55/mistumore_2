@@ -16,6 +16,8 @@ class QuoteModel {
   final DateTime? acceptedAt;
   final DateTime? rejectedAt;
   final String? rejectionReason;
+  final DateTime? cancelledAt;
+  final String? cancellationReason;
 
   QuoteModel({
     required this.id,
@@ -33,6 +35,8 @@ class QuoteModel {
     this.acceptedAt,
     this.rejectedAt,
     this.rejectionReason,
+    this.cancelledAt,
+    this.cancellationReason,
   });
 
   factory QuoteModel.fromMap(Map<String, dynamic> map) {
@@ -55,6 +59,8 @@ class QuoteModel {
       acceptedAt: map['acceptedAt'] != null ? DateTime.parse(map['acceptedAt']) : null,
       rejectedAt: map['rejectedAt'] != null ? DateTime.parse(map['rejectedAt']) : null,
       rejectionReason: map['rejectionReason'],
+      cancelledAt: map['cancelledAt'] != null ? DateTime.parse(map['cancelledAt']) : null,
+      cancellationReason: map['cancellationReason'],
     );
   }
 
@@ -75,6 +81,8 @@ class QuoteModel {
       'acceptedAt': acceptedAt?.toIso8601String(),
       'rejectedAt': rejectedAt?.toIso8601String(),
       'rejectionReason': rejectionReason,
+      'cancelledAt': cancelledAt?.toIso8601String(),
+      'cancellationReason': cancellationReason,
     };
   }
 
@@ -93,6 +101,8 @@ class QuoteModel {
     DateTime? acceptedAt,
     DateTime? rejectedAt,
     String? rejectionReason,
+    DateTime? cancelledAt,
+    String? cancellationReason,
   }) {
     return QuoteModel(
       id: id ?? this.id,
@@ -110,6 +120,8 @@ class QuoteModel {
       acceptedAt: acceptedAt ?? this.acceptedAt,
       rejectedAt: rejectedAt ?? this.rejectedAt,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 }
@@ -119,6 +131,7 @@ enum QuoteStatus {
   accepted,  // 承認済み
   rejected,  // 却下
   completed, // 完了
+  cancelled, // キャンセル
 }
 
 extension QuoteStatusExtension on QuoteStatus {
@@ -132,6 +145,8 @@ extension QuoteStatusExtension on QuoteStatus {
         return '却下';
       case QuoteStatus.completed:
         return '完了';
+      case QuoteStatus.cancelled:
+        return 'キャンセル';
     }
   }
 
@@ -145,6 +160,8 @@ extension QuoteStatusExtension on QuoteStatus {
         return Colors.red;
       case QuoteStatus.completed:
         return Colors.blue;
+      case QuoteStatus.cancelled:
+        return Colors.grey;
     }
   }
 }

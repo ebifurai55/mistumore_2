@@ -178,10 +178,9 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
   }
 
   Widget _buildNewRequestsTab(UserModel user) {
-    return Consumer<DatabaseService>(
-      builder: (context, databaseService, child) {
-        return StreamBuilder<List<RequestModel>>(
-          stream: databaseService.getOpenRequests(category: _selectedCategory),
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+    return StreamBuilder<List<RequestModel>>(
+      stream: databaseService.getOpenRequests(category: _selectedCategory),
           builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -233,8 +232,6 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         );
           },
         );
-      },
-    );
   }
 
   Widget _buildRequestCard(RequestModel request, UserModel user) {
@@ -263,16 +260,12 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Consumer<DatabaseService>(
-                    builder: (context, databaseService, child) {
-                      return FutureBuilder<UserModel?>(
-                        future: databaseService.getUser(request.clientId),
-                        builder: (context, userSnapshot) {
-                          return ProfileAvatar(
-                            imageUrl: userSnapshot.data?.profileImageUrl,
-                            radius: 20,
-                          );
-                        },
+                  FutureBuilder<UserModel?>(
+                    future: Provider.of<DatabaseService>(context, listen: false).getUser(request.clientId),
+                    builder: (context, userSnapshot) {
+                      return ProfileAvatar(
+                        imageUrl: userSnapshot.data?.profileImageUrl,
+                        radius: 20,
                       );
                     },
                   ),
@@ -413,10 +406,9 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
   }
 
   Widget _buildSubmittedQuotesTab(UserModel user) {
-    return Consumer<DatabaseService>(
-      builder: (context, databaseService, child) {
-        return StreamBuilder<List<QuoteModel>>(
-          stream: databaseService.getQuotesByProfessional(user.uid),
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+    return StreamBuilder<List<QuoteModel>>(
+      stream: databaseService.getQuotesByProfessional(user.uid),
           builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -522,8 +514,6 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         );
           },
         );
-      },
-    );
   }
 
   Color _getCategoryColor(ServiceCategory category) {
@@ -553,6 +543,8 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         return Colors.red;
       case QuoteStatus.completed:
         return Colors.blue;
+      case QuoteStatus.cancelled:
+        return Colors.grey;
     }
   }
 
@@ -566,6 +558,8 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         return '却下';
       case QuoteStatus.completed:
         return '完了';
+      case QuoteStatus.cancelled:
+        return 'キャンセル';
     }
   }
 } 
