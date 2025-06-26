@@ -25,7 +25,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -100,6 +100,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
             bottom: TabBar(
               controller: _tabController,
               tabs: const [
+                Tab(text: 'すべての依頼'),
                 Tab(text: '新着案件'),
                 Tab(text: '提出済み'),
               ],
@@ -144,6 +145,8 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    // すべての依頼タブ
+                    _buildAllRequestsTab(user),
                     // 新着案件タブ
                     _buildNewRequestsTab(user),
                     // 提出済み見積もりタブ
@@ -174,6 +177,63 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
         checkmarkColor: Theme.of(context).primaryColor,
       ),
+    );
+  }
+
+  Widget _buildAllRequestsTab(UserModel user) {
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+    return StreamBuilder<List<RequestModel>>(
+      stream: databaseService.getAllRequests(category: _selectedCategory),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _selectedCategory == null 
+                      ? '依頼がありません'
+                      : '${_selectedCategory!.displayName}の依頼がありません',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                if (_selectedCategory != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedCategory = null;
+                      });
+                    },
+                    child: const Text('すべてのカテゴリを表示'),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: snapshot.data!.length,
+          itemBuilder: (context, index) {
+            final request = snapshot.data![index];
+            return _buildRequestCard(request, user, showStatus: true);
+          },
+        );
+      },
     );
   }
 
@@ -234,7 +294,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         );
   }
 
-  Widget _buildRequestCard(RequestModel request, UserModel user) {
+  Widget _buildRequestCard(RequestModel request, UserModel user, {bool showStatus = false}) {
     final daysUntilDeadline = request.deadline.difference(DateTime.now()).inDays;
     final isUrgent = daysUntilDeadline <= 3;
 
@@ -303,6 +363,24 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
                                   '急募',
                                   style: TextStyle(
                                     color: Colors.red,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (showStatus) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getRequestStatusColor(request.status).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _getRequestStatusText(request.status),
+                                  style: TextStyle(
+                                    color: _getRequestStatusColor(request.status),
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -559,6 +637,36 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
       case QuoteStatus.completed:
         return '完了';
       case QuoteStatus.cancelled:
+        return 'キャンセル';
+    }
+  }
+
+  Color _getRequestStatusColor(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.open:
+        return Colors.green;
+      case RequestStatus.quoted:
+        return Colors.orange;
+      case RequestStatus.accepted:
+        return Colors.blue;
+      case RequestStatus.completed:
+        return Colors.purple;
+      case RequestStatus.cancelled:
+        return Colors.grey;
+    }
+  }
+
+  String _getRequestStatusText(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.open:
+        return '募集中';
+      case RequestStatus.quoted:
+        return '見積もり受信';
+      case RequestStatus.accepted:
+        return '決定済み';
+      case RequestStatus.completed:
+        return '完了';
+      case RequestStatus.cancelled:
         return 'キャンセル';
     }
   }

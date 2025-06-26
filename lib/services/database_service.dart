@@ -157,6 +157,22 @@ class DatabaseService {
         .toList());
   }
 
+  Stream<List<RequestModel>> getAllRequests({ServiceCategory? category}) {
+    Query query = _requestsCollection;
+    
+    if (category != null) {
+      query = query
+          .where('category', isEqualTo: category.toString().split('.').last)
+          .orderBy('createdAt', descending: true);
+    } else {
+      query = query.orderBy('createdAt', descending: true);
+    }
+    
+    return query.snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => RequestModel.fromMap(doc.data() as Map<String, dynamic>))
+        .toList());
+  }
+
   // ===== QUOTE OPERATIONS =====
   
   Future<String> createQuote(QuoteModel quote) async {
