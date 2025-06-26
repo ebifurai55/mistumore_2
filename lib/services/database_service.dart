@@ -293,9 +293,22 @@ class DatabaseService {
     }
   }
 
-  Future<void> acceptQuote(String quoteId, String requestId) async {
+  Future<String> acceptQuote(String quoteId, String requestId) async {
     try {
+      String contractId = '';
+      
       await _firestore.runTransaction((transaction) async {
+        // Get quote and request data
+        final quoteDoc = await transaction.get(_quotesCollection.doc(quoteId));
+        final requestDoc = await transaction.get(_requestsCollection.doc(requestId));
+        
+        if (!quoteDoc.exists || !requestDoc.exists) {
+          throw Exception('Quote or request not found');
+        }
+        
+        final quote = QuoteModel.fromMap(quoteDoc.data() as Map<String, dynamic>);
+        final request = RequestModel.fromMap(requestDoc.data() as Map<String, dynamic>);
+
         // Update quote status to accepted
         final quoteRef = _quotesCollection.doc(quoteId);
         transaction.update(quoteRef, {
@@ -311,6 +324,31 @@ class DatabaseService {
           'selectedQuoteId': quoteId,
           'updatedAt': DateTime.now().toIso8601String(),
         });
+
+        // Create contract
+        final contractRef = _contractsCollection.doc();
+        contractId = contractRef.id;
+        
+        final contract = ContractModel(
+          id: contractId,
+          requestId: requestId,
+          quoteId: quoteId,
+          clientId: request.clientId,
+          professionalId: quote.professionalId,
+          title: request.title,
+          description: quote.description,
+          price: quote.price,
+          estimatedDays: quote.estimatedDays,
+          startDate: DateTime.now(),
+          expectedEndDate: DateTime.now().add(Duration(days: quote.estimatedDays)),
+          status: ContractStatus.active,
+          deliverables: quote.deliverables,
+          milestones: [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        
+        transaction.set(contractRef, contract.toMap());
 
         // Reject other quotes for this request
         final otherQuotesSnapshot = await _quotesCollection
@@ -329,6 +367,8 @@ class DatabaseService {
           }
         }
       });
+      
+      return contractId;
     } catch (e) {
       throw e;
     }
@@ -394,6 +434,97 @@ class DatabaseService {
     } catch (e) {
       throw e;
     }
+  }
+
+  Future<void> completeContract(String contractId) async {
+    try {
+      await _contractsCollection.doc(contractId).update({
+        'status': 'completed',
+        'actualEndDate': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> cancelContract(String contractId, String reason) async {
+    try {
+      await _contractsCollection.doc(contractId).update({
+        'status': 'cancelled',
+        'cancellationReason': reason,
+        'cancelledAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> completeMilestone(String contractId, String milestoneId) async {
+    try {
+      final contract = await getContract(contractId);
+      if (contract == null) throw Exception('Contract not found');
+
+      final updatedMilestones = contract.milestones.map((milestone) {
+        if (milestone.id == milestoneId) {
+          return ContractMilestone(
+            id: milestone.id,
+            title: milestone.title,
+            description: milestone.description,
+            dueDate: milestone.dueDate,
+            isCompleted: true,
+            completedAt: DateTime.now(),
+          );
+        }
+        return milestone;
+      }).toList();
+
+      await updateContract(contract.copyWith(milestones: updatedMilestones));
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  // ===== CONTRACT MESSAGES =====
+
+  Future<String> sendContractMessage(ContractMessage message) async {
+    try {
+      final messagesCollection = _contractsCollection
+          .doc(message.contractId)
+          .collection('messages');
+      
+      final docRef = await messagesCollection.add(message.toMap());
+      
+      // Update message with generated ID
+      final updatedMessage = ContractMessage(
+        id: docRef.id,
+        contractId: message.contractId,
+        senderId: message.senderId,
+        senderName: message.senderName,
+        senderProfileImageUrl: message.senderProfileImageUrl,
+        message: message.message,
+        createdAt: message.createdAt,
+        type: message.type,
+      );
+      
+      await docRef.update(updatedMessage.toMap());
+      
+      return docRef.id;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Stream<List<ContractMessage>> getContractMessages(String contractId) {
+    return _contractsCollection
+        .doc(contractId)
+        .collection('messages')
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ContractMessage.fromMap(doc.data()))
+            .toList());
   }
 
   // ===== DASHBOARD DATA =====

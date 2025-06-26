@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/request_model.dart';
 import '../../models/quote_model.dart';
 import '../../models/user_model.dart';
+import '../../models/contract_model.dart';
 import '../../providers/user_provider.dart';
 import '../../services/database_service.dart';
 import '../../widgets/profile_avatar.dart';
@@ -11,6 +12,7 @@ import '../request/request_detail_screen.dart';
 import '../profile/profile_edit_screen.dart';
 import '../auth/login_screen.dart';
 import '../quote/quote_detail_screen.dart';
+import '../contract/contract_screen.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   @override
@@ -27,7 +29,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -104,6 +106,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
               tabs: const [
                 Tab(text: 'あなたの依頼'),
                 Tab(text: '受信した見積もり'),
+                Tab(text: '契約'),
               ],
             ),
           ),
@@ -166,6 +169,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
                     _buildRequestsTab(user),
                     // 見積もりタブ
                     _buildQuotesTab(user),
+                    // 契約タブ
+                    _buildContractsTab(user),
                   ],
                 ),
               ),
@@ -880,5 +885,178 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
         );
       }
     }
+  }
+
+  Widget _buildContractsTab(UserModel user) {
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+    return StreamBuilder<List<ContractModel>>(
+      stream: databaseService.getContractsByUser(user.uid, UserType.client),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.assignment_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  '契約がありません',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '見積もりを承認すると契約が作成されます',
+                  style: TextStyle(
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final contracts = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: contracts.length,
+          itemBuilder: (context, index) {
+            final contract = contracts[index];
+            return _buildContractCard(contract);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildContractCard(ContractModel contract) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ContractScreen(contract: contract),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: contract.status.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      contract.status.displayName,
+                      style: TextStyle(
+                        color: contract.status.color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${contract.createdAt.month}/${contract.createdAt.day}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                contract.title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                contract.description,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.attach_money, size: 16, color: Colors.green),
+                  const SizedBox(width: 4),
+                  Text(
+                    '契約金額: ¥${contract.price.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.schedule, size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${contract.estimatedDays}日',
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              if (contract.status == ContractStatus.active) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: _calculateProgress(contract),
+                  backgroundColor: Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(contract.status.color),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '進捗: ${(_calculateProgress(contract) * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _calculateProgress(ContractModel contract) {
+    if (contract.milestones.isEmpty) {
+      final totalDays = contract.expectedEndDate.difference(contract.startDate).inDays;
+      final elapsedDays = DateTime.now().difference(contract.startDate).inDays;
+      return (elapsedDays / totalDays).clamp(0.0, 1.0);
+    }
+    
+    final completedMilestones = contract.milestones.where((m) => m.isCompleted).length;
+    return completedMilestones / contract.milestones.length;
   }
 } 

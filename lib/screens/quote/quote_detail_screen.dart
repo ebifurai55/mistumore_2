@@ -6,6 +6,7 @@ import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 import '../../services/database_service.dart';
 import '../../widgets/profile_avatar.dart';
+import '../contract/contract_screen.dart';
 
 class QuoteDetailScreen extends StatefulWidget {
   final QuoteModel quote;
@@ -367,12 +368,23 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
       });
 
       try {
-        await _databaseService.acceptQuote(widget.quote.id, widget.request.id);
+        final contractId = await _databaseService.acceptQuote(widget.quote.id, widget.request.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('見積もりを承認しました')),
+            const SnackBar(content: Text('見積もりを承認し、契約を作成しました')),
           );
-          Navigator.of(context).pop();
+          
+          // 契約画面に遷移
+          final contract = await _databaseService.getContract(contractId);
+          if (contract != null) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => ContractScreen(contract: contract),
+              ),
+            );
+          } else {
+            Navigator.of(context).pop();
+          }
         }
       } catch (e) {
         if (mounted) {
