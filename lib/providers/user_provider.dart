@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -13,6 +14,7 @@ class UserProvider with ChangeNotifier {
   String? _errorMessage;
 
   UserModel? get currentUser => _currentUser;
+  UserModel? get user => _currentUser; // ホーム画面で使用するためのエイリアス
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
@@ -22,38 +24,75 @@ class UserProvider with ChangeNotifier {
   }
 
   void _initializeAuth() {
+    if (kDebugMode) {
+      print('UserProvider: Initializing auth...');
+    }
+    
     _isLoading = true;
     notifyListeners();
 
     _authService.authStateChanges.listen((User? firebaseUser) async {
+      if (kDebugMode) {
+        print('UserProvider: Auth state changed - User: ${firebaseUser?.uid}');
+      }
+      
       if (firebaseUser != null) {
         try {
+          if (kDebugMode) {
+            print('UserProvider: Fetching user data for ${firebaseUser.uid}');
+          }
+          
           final userData = await _databaseService.getUser(firebaseUser.uid);
+          
+          if (kDebugMode) {
+            print('UserProvider: User data fetched - ${userData?.displayName}');
+          }
+          
           _currentUser = userData;
         } catch (e) {
+          if (kDebugMode) {
+            print('UserProvider: Error fetching user data: $e');
+          }
           _errorMessage = 'ユーザーデータの取得に失敗しました: $e';
           _currentUser = null;
         }
       } else {
+        if (kDebugMode) {
+          print('UserProvider: User signed out');
+        }
         _currentUser = null;
       }
       
       _isLoading = false;
       notifyListeners();
+      
+      if (kDebugMode) {
+        print('UserProvider: Auth initialization complete - Authenticated: ${_currentUser != null}');
+      }
     });
   }
 
   Future<bool> signInWithEmailAndPassword(String email, String password) async {
     try {
+      if (kDebugMode) {
+        print('UserProvider: Starting sign in for $email');
+      }
+      
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
 
       final result = await _authService.signInWithEmailAndPassword(email, password);
       
+      if (kDebugMode) {
+        print('UserProvider: Sign in result - User: ${result?.user?.uid}');
+      }
+      
       if (result?.user != null) {
-        final userData = await _databaseService.getUser(result!.user!.uid);
-        _currentUser = userData;
+        // auth state changesで自動的にユーザーデータが設定されるので、ここでは追加の取得は不要
+        // final userData = await _databaseService.getUser(result!.user!.uid);
+        // _currentUser = userData;
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -64,6 +103,9 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
+      if (kDebugMode) {
+        print('UserProvider: Sign in error: $e');
+      }
       _errorMessage = _getErrorMessage(e);
       _isLoading = false;
       notifyListeners();
@@ -76,8 +118,13 @@ class UserProvider with ChangeNotifier {
     required String password,
     required String displayName,
     required UserType userType,
+    String? profileImageUrl,
   }) async {
     try {
+      if (kDebugMode) {
+        print('UserProvider: Starting registration for $email');
+      }
+      
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
@@ -87,11 +134,18 @@ class UserProvider with ChangeNotifier {
         password,
         displayName,
         userType,
+        profileImageUrl: profileImageUrl,
       );
       
+      if (kDebugMode) {
+        print('UserProvider: Registration result - User: ${result?.user?.uid}');
+      }
+      
       if (result?.user != null) {
-        final userData = await _databaseService.getUser(result!.user!.uid);
-        _currentUser = userData;
+        // auth state changesで自動的にユーザーデータが設定されるので、ここでは追加の取得は不要
+        // final userData = await _databaseService.getUser(result!.user!.uid);
+        // _currentUser = userData;
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -102,6 +156,9 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
+      if (kDebugMode) {
+        print('UserProvider: Registration error: $e');
+      }
       _errorMessage = _getErrorMessage(e);
       _isLoading = false;
       notifyListeners();
@@ -111,11 +168,17 @@ class UserProvider with ChangeNotifier {
 
   Future<void> signOut() async {
     try {
+      if (kDebugMode) {
+        print('UserProvider: Signing out');
+      }
       await _authService.signOut();
       _currentUser = null;
       _errorMessage = null;
       notifyListeners();
     } catch (e) {
+      if (kDebugMode) {
+        print('UserProvider: Sign out error: $e');
+      }
       _errorMessage = 'ログアウトに失敗しました: $e';
       notifyListeners();
     }
@@ -136,6 +199,11 @@ class UserProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void updateUser(UserModel updatedUser) {
+    _currentUser = updatedUser;
+    notifyListeners();
   }
 
   Future<void> resetPassword(String email) async {

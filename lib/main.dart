@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'providers/user_provider.dart';
+import 'services/database_service.dart';
+import 'services/storage_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/client_home_screen.dart';
 import 'screens/home/professional_home_screen.dart';
@@ -24,6 +26,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider<DatabaseService>(create: (_) => DatabaseService()),
+        Provider<StorageService>(create: (_) => StorageService()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: MaterialApp(
@@ -100,9 +104,9 @@ class AuthWrapper extends StatelessWidget {
         final userType = userProvider.currentUser?.userType ?? UserType.client;
         switch (userType) {
           case UserType.client:
-            return const ClientHomeScreen();
+            return ClientHomeScreen();
           case UserType.professional:
-            return const ProfessionalHomeScreen();
+            return ProfessionalHomeScreen();
         }
       },
     );

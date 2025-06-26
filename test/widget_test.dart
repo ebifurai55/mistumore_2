@@ -49,9 +49,9 @@ void main() {
     test('UserProviderが正常に初期化される', () {
       final userProvider = UserProvider();
       
-      expect(userProvider.user, isNull);
+      expect(userProvider.currentUser, isNull);
       expect(userProvider.isLoading, isFalse);
-      expect(userProvider.isLoggedIn, isFalse);
+      expect(userProvider.isAuthenticated, isFalse);
     });
   });
 } 

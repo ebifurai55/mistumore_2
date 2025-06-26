@@ -23,6 +23,64 @@ class StorageService {
     }
   }
 
+  // Generic upload image method
+  Future<String> uploadImage(XFile imageFile, String folder) async {
+    try {
+      print('StorageService: Starting generic upload to folder: $folder');
+      print('StorageService: Image file name: ${imageFile.name}');
+      
+      final String fileName = '$folder/${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      print('StorageService: Full file name: $fileName');
+      
+      final Reference ref = _storage.ref().child(fileName);
+
+      UploadTask uploadTask;
+      
+      if (kIsWeb) {
+        print('StorageService: Uploading for web platform');
+        // For web platform
+        final bytes = await imageFile.readAsBytes();
+        print('StorageService: Image size: ${bytes.length} bytes');
+        uploadTask = ref.putData(
+          bytes,
+          SettableMetadata(
+            contentType: 'image/jpeg',
+            cacheControl: 'max-age=3600',
+          ),
+        );
+      } else {
+        print('StorageService: Uploading for mobile platform');
+        // For mobile platforms
+        final File file = File(imageFile.path);
+        uploadTask = ref.putFile(
+          file,
+          SettableMetadata(
+            contentType: 'image/jpeg',
+            cacheControl: 'max-age=3600',
+          ),
+        );
+      }
+
+      // Monitor upload progress
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        double progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        print('StorageService: Upload progress: ${progress.toStringAsFixed(2)}%');
+      });
+
+      final TaskSnapshot snapshot = await uploadTask;
+      print('StorageService: Upload completed successfully');
+      
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      print('StorageService: Download URL obtained: $downloadUrl');
+      
+      return downloadUrl;
+    } catch (e) {
+      print('StorageService: Error uploading image: $e');
+      print('StorageService: Error type: ${e.runtimeType}');
+      throw Exception('Failed to upload image: $e');
+    }
+  }
+
   // Upload profile image
   Future<String> uploadProfileImage({
     required String userId,

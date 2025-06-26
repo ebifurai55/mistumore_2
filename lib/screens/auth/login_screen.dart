@@ -1,13 +1,12 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/storage_service.dart';
-import '../../widgets/profile_avatar.dart';
+import '../../screens/home/client_home_screen.dart';
+import '../../screens/home/professional_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +24,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _isLogin = true;
   bool _obscurePassword = true;
   UserType _selectedUserType = UserType.client;
+  
+  // プロフィール画像関連
+  XFile? _selectedProfileImage;
+  bool _isImageUploading = false;
+  final StorageService _storageService = StorageService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -165,6 +170,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       child: Column(
         children: [
           if (!_isLogin) ...[
+            // プロフィール画像選択
+            _buildProfileImagePicker(),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -235,6 +243,87 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
+  Widget _buildProfileImagePicker() {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey.shade200,
+                border: Border.all(
+                  color: Theme.of(context).primaryColor,
+                  width: 2,
+                ),
+              ),
+              child: _isImageUploading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : _selectedProfileImage != null
+                      ? ClipOval(
+                          child: FutureBuilder<Uint8List>(
+                            future: _selectedProfileImage!.readAsBytes(),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return Image.memory(
+                                  snapshot.data!,
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.cover,
+                                );
+                              }
+                              return const Center(child: CircularProgressIndicator());
+                            },
+                          ),
+                        )
+                      : const Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.grey,
+                        ),
+            ),
+            if (!_isImageUploading)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _pickProfileImage,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'プロフィール画像を選択（任意）',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUserTypeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,10 +372,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Widget _buildActionButton() {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        final isLoading = userProvider.isLoading || _isImageUploading;
+        
         return SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: userProvider.isLoading ? null : _handleSubmit,
+            onPressed: isLoading ? null : _handleSubmit,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6B46C1),
               foregroundColor: Colors.white,
@@ -295,14 +386,29 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: userProvider.isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
+            child: isLoading
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _isImageUploading 
+                            ? '画像をアップロード中...'
+                            : (_isLogin ? 'ログイン中...' : 'アカウント作成中...'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   )
                 : Text(
                     _isLogin ? 'ログイン' : '新規登録',
@@ -344,28 +450,142 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     bool success = false;
 
-    if (_isLogin) {
-      success = await userProvider.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-    } else {
+    try {
+      if (_isLogin) {
+        // ログイン処理にタイムアウトを設定（30秒）
+        success = await userProvider.signInWithEmailAndPassword(
+          _emailController.text.trim(),
+          _passwordController.text,
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ログインがタイムアウトしました。ネットワーク接続を確認してください。'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return false;
+          },
+        );
+      } else {
+      // サインアップ時にプロフィール画像をアップロード
+      String? profileImageUrl;
+      if (_selectedProfileImage != null) {
+        setState(() {
+          _isImageUploading = true;
+        });
+        try {
+          profileImageUrl = await _storageService.uploadImage(
+            _selectedProfileImage!,
+            'profile_images',
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('プロフィール画像のアップロードに失敗しました'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        } finally {
+          setState(() {
+            _isImageUploading = false;
+          });
+        }
+      }
+
+      // 登録処理にもタイムアウトを設定（30秒）
       success = await userProvider.registerWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         displayName: _nameController.text.trim(),
         userType: _selectedUserType,
+        profileImageUrl: profileImageUrl,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('登録がタイムアウトしました。ネットワーク接続を確認してください。'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return false;
+        },
       );
     }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('エラーが発生しました: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
-    if (mounted && !success && userProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(userProvider.errorMessage!),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (mounted) {
+      if (success) {
+        // 成功時のメッセージ表示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isLogin ? 'ログインしました' : 'アカウントを作成しました'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // 少し遅延してから適切なホーム画面に遷移
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (mounted) {
+          final currentUser = userProvider.currentUser;
+          if (currentUser != null) {
+            Widget homeScreen;
+            if (currentUser.userType == UserType.client) {
+              homeScreen = ClientHomeScreen();
+            } else {
+              homeScreen = ProfessionalHomeScreen();
+            }
+            
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => homeScreen),
+            );
+          }
+        }
+      } else if (userProvider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userProvider.errorMessage!),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final pickedFile = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        _selectedProfileImage = pickedFile;
+      });
     }
   }
 } 
