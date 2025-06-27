@@ -16,97 +16,53 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  
+  // Use default Firestore settings to avoid internal assertion errors
+  // No custom settings applied
+  
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<DatabaseService>(create: (_) => DatabaseService()),
-        Provider<StorageService>(create: (_) => StorageService()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        Provider(create: (_) => DatabaseService()),
       ],
       child: MaterialApp(
-        title: 'ミツモア - 依頼と見積もりのマッチングサービス',
+        title: 'Mitsumore',
         theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6B46C1),
-            brightness: Brightness.light,
-          ),
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-          ),
-          cardTheme: CardThemeData(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-          ),
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
-        home: const AuthWrapper(),
-        debugShowCheckedModeBanner: false,
+        home: AuthWrapper(),
       ),
     );
   }
 }
 
 class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
-        // Show loading while checking auth state
         if (userProvider.isLoading) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+          return Scaffold(
+            body: Center(child: CircularProgressIndicator()),
           );
         }
-
-        // If not authenticated, show login screen
-        if (userProvider.currentUser == null) {
-          return const LoginScreen();
+        
+        if (userProvider.user == null) {
+          return LoginScreen();
         }
-
-        // Show appropriate home screen based on user type
-        final userType = userProvider.currentUser?.userType ?? UserType.client;
-        switch (userType) {
-          case UserType.client:
-            return ClientHomeScreen();
-          case UserType.professional:
-            return ProfessionalHomeScreen();
+        
+        // ユーザーのタイプに応じてホーム画面を切り替え
+        if (userProvider.user!.userType == 'client') {
+          return ClientHomeScreen();
+        } else {
+          return ProfessionalHomeScreen();
         }
       },
     );

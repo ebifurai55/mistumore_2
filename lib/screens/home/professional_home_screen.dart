@@ -111,8 +111,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
           ),
           body: Column(
             children: [
-              // デバッグ情報表示
-              ProfileImageDebugInfo(imageUrl: user.profileImageUrl),
+              // デバッグ情報表示（削除）
               // カテゴリフィルター
               Container(
                 padding: const EdgeInsets.all(16),
@@ -532,67 +531,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
           itemCount: snapshot.data!.length,
           itemBuilder: (context, index) {
             final quote = snapshot.data![index];
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: ProfileAvatar(
-                  imageUrl: user.profileImageUrl,
-                  radius: 20,
-                ),
-                title: Text(
-                  quote.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      quote.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '見積もり額: ¥${quote.price.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(quote.status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _getStatusText(quote.status),
-                    style: TextStyle(
-                      color: _getStatusColor(quote.status),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                onTap: () async {
-                  // QuoteDetailScreenにはrequestも必要なので取得
-                  final request = await databaseService.getRequest(quote.requestId);
-                  if (request != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => QuoteDetailScreen(
-                          quote: quote,
-                          request: request,
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            );
+            return _buildQuoteCard(quote, user, databaseService);
           },
         );
           },
@@ -836,6 +775,214 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildQuoteCard(QuoteModel quote, UserModel user, DatabaseService databaseService) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          // QuoteDetailScreenにはrequestも必要なので取得
+          final request = await databaseService.getRequest(quote.requestId);
+          if (request != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => QuoteDetailScreen(
+                  quote: quote,
+                  request: request,
+                ),
+              ),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ヘッダー部分
+              Row(
+                children: [
+                  ProfileAvatar(
+                    imageUrl: user.profileImageUrl,
+                    radius: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          quote.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(quote.status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _getStatusText(quote.status),
+                            style: TextStyle(
+                              color: _getStatusColor(quote.status),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // 見積もり内容
+              Text(
+                quote.description,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              
+              // 価格と期間
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.attach_money, size: 16, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Text(
+                              '見積もり額: ¥${quote.price.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.schedule, size: 16, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text(
+                              '作業期間: ${quote.estimatedDays}日',
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 承認済みの見積もりに契約作成ボタンを表示
+                  if (quote.status == QuoteStatus.accepted) ...[
+                    ElevatedButton.icon(
+                      onPressed: () => _createContract(quote, databaseService),
+                      icon: const Icon(Icons.handshake, size: 16),
+                      label: const Text('契約作成'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createContract(QuoteModel quote, DatabaseService databaseService) async {
+    try {
+      // まず依頼情報を取得
+      final request = await databaseService.getRequest(quote.requestId);
+      if (request == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('依頼情報が見つかりません')),
+        );
+        return;
+      }
+
+      // 既に契約が存在するかチェック
+      final existingContracts = await databaseService.getContractsByQuote(quote.id);
+      if (existingContracts.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('この見積もりの契約は既に作成されています')),
+        );
+        return;
+      }
+
+      // 契約を作成
+      final contract = ContractModel(
+        id: '', // Firestoreで自動生成される
+        requestId: request.id,
+        quoteId: quote.id,
+        clientId: request.clientId,
+        professionalId: quote.professionalId,
+        title: request.title,
+        description: request.description,
+        price: quote.price,
+        estimatedDays: quote.estimatedDays,
+        startDate: DateTime.now(),
+        expectedEndDate: DateTime.now().add(Duration(days: quote.estimatedDays)),
+        status: ContractStatus.active,
+        deliverables: quote.deliverables ?? [],
+        milestones: [], // 必要に応じて後で追加
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // 契約を保存
+      final contractId = await databaseService.createContract(contract);
+
+      // 成功メッセージを表示
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('契約が正常に作成されました'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // 契約画面に遷移
+      final createdContract = await databaseService.getContract(contractId);
+      if (createdContract != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ContractScreen(contract: createdContract),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('契約作成に失敗しました: $e')),
+      );
+    }
   }
 
   double _calculateProgress(ContractModel contract) {

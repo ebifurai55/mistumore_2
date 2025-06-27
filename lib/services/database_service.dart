@@ -6,6 +6,11 @@ import '../models/contract_model.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Temporarily disable stream cache to debug internal assertion failures
+  // final Map<String, Stream<List<RequestModel>>> _requestStreams = {};
+  // final Map<String, Stream<List<QuoteModel>>> _quoteStreams = {};
+  // final Map<String, Stream<List<ContractModel>>> _contractStreams = {};
 
   // Users collection
   CollectionReference get _usersCollection => _firestore.collection('users');
@@ -431,6 +436,20 @@ class DatabaseService {
         return ContractModel.fromMap(doc.data() as Map<String, dynamic>);
       }
       return null;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<List<ContractModel>> getContractsByQuote(String quoteId) async {
+    try {
+      final snapshot = await _contractsCollection
+          .where('quoteId', isEqualTo: quoteId)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => ContractModel.fromMap(doc.data() as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw e;
     }
