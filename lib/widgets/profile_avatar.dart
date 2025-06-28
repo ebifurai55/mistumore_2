@@ -57,31 +57,25 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    // デバッグ情報を出力
-    print('ProfileAvatar: imageUrl = ${widget.imageUrl}');
-    print('ProfileAvatar: hasError = $_hasError');
-    print('ProfileAvatar: errorMessage = $_errorMessage');
+    final hasValidImageUrl = widget.imageUrl != null && 
+                            widget.imageUrl!.isNotEmpty && 
+                            !_hasError;
 
     return GestureDetector(
       onTap: widget.onTap,
       child: CircleAvatar(
         radius: widget.radius,
         backgroundColor: Colors.grey[300],
-        backgroundImage: widget.imageUrl != null && 
-                         widget.imageUrl!.isNotEmpty && 
-                         !_hasError
+        backgroundImage: hasValidImageUrl
             ? NetworkImage(_getCacheBustedUrl(widget.imageUrl)!)
             : null,
-        onBackgroundImageError: (exception, stackTrace) {
-          print('ProfileAvatar: Image load error: $exception');
+        onBackgroundImageError: hasValidImageUrl ? (exception, stackTrace) {
           setState(() {
             _hasError = true;
             _errorMessage = exception.toString();
           });
-        },
-        child: (widget.imageUrl == null || 
-                widget.imageUrl!.isEmpty || 
-                _hasError)
+        } : null,
+        child: !hasValidImageUrl
             ? Icon(
                 Icons.person,
                 size: widget.radius,
