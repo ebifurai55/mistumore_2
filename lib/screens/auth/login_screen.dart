@@ -5,8 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
 import '../../services/storage_service.dart';
-import '../../screens/home/client_home_screen.dart';
-import '../../screens/home/professional_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -543,26 +541,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             duration: const Duration(seconds: 2),
           ),
         );
-
-        // 少し遅延してから適切なホーム画面に遷移
-        await Future.delayed(const Duration(milliseconds: 1500));
-        
-        if (mounted) {
-          final currentUser = userProvider.currentUser;
-          if (currentUser != null) {
-            Widget homeScreen;
-            if (currentUser.userType == UserType.client) {
-              homeScreen = ClientHomeScreen();
-            } else {
-              homeScreen = ProfessionalHomeScreen();
-            }
-            
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => homeScreen),
-            );
-          }
-        }
+        // AuthWrapperが自動的に適切なホーム画面に遷移するため、手動遷移は削除
       } else if (userProvider.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

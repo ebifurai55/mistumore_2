@@ -59,7 +59,7 @@ class AuthWrapper extends StatelessWidget {
         }
         
         // ユーザーのタイプに応じてホーム画面を切り替え
-        if (userProvider.user!.userType == 'client') {
+        if (userProvider.user!.userType == UserType.client) {
           return ClientHomeScreen();
         } else {
           return ProfessionalHomeScreen();
