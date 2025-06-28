@@ -7,7 +7,7 @@ import '../../models/contract_model.dart';
 import '../../providers/user_provider.dart';
 import '../../services/database_service.dart';
 import '../../widgets/profile_avatar.dart';
-import '../quote/create_quote_screen.dart';
+
 import '../quote/quote_detail_screen.dart';
 import '../request/request_detail_screen.dart';
 import '../profile/profile_edit_screen.dart';
@@ -461,21 +461,19 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreateQuoteScreen(request: request),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('見積もり'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  // 見積もり作成は将来画面で行う
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '詳細を確認',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -895,16 +893,21 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
                       ],
                     ),
                   ),
-                  // 承認済みの見積もりに契約作成ボタンを表示
+                  // 契約作成は将来画面で行う
                   if (quote.status == QuoteStatus.accepted) ...[
-                    ElevatedButton.icon(
-                      onPressed: () => _createContract(quote, databaseService),
-                      icon: const Icon(Icons.handshake, size: 16),
-                      label: const Text('契約作成'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '承認済み',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -917,73 +920,7 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
     );
   }
 
-  Future<void> _createContract(QuoteModel quote, DatabaseService databaseService) async {
-    try {
-      // まず依頼情報を取得
-      final request = await databaseService.getRequest(quote.requestId);
-      if (request == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('依頼情報が見つかりません')),
-        );
-        return;
-      }
 
-      // 既に契約が存在するかチェック
-      final existingContracts = await databaseService.getContractsByQuote(quote.id);
-      if (existingContracts.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('この見積もりの契約は既に作成されています')),
-        );
-        return;
-      }
-
-      // 契約を作成
-      final contract = ContractModel(
-        id: '', // Firestoreで自動生成される
-        requestId: request.id,
-        quoteId: quote.id,
-        clientId: request.clientId,
-        professionalId: quote.professionalId,
-        title: request.title,
-        description: request.description,
-        price: quote.price,
-        estimatedDays: quote.estimatedDays,
-        startDate: DateTime.now(),
-        expectedEndDate: DateTime.now().add(Duration(days: quote.estimatedDays)),
-        status: ContractStatus.active,
-        deliverables: quote.deliverables ?? [],
-        milestones: [], // 必要に応じて後で追加
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // 契約を保存
-      final contractId = await databaseService.createContract(contract);
-
-      // 成功メッセージを表示
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('契約が正常に作成されました'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // 契約画面に遷移
-      final createdContract = await databaseService.getContract(contractId);
-      if (createdContract != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ContractScreen(contract: createdContract),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('契約作成に失敗しました: $e')),
-      );
-    }
-  }
 
   double _calculateProgress(ContractModel contract) {
     if (contract.milestones.isEmpty) {
