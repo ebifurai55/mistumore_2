@@ -209,12 +209,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
                 return Card(
                   margin: EdgeInsets.all(8.0),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade100,
-                      child: Icon(
-                        _getCategoryIcon(request.category),
-                        color: Colors.blue.shade700,
-                      ),
+                    leading: ProfileAvatar(
+                      imageUrl: userProvider.user?.profileImageUrl,
+                      radius: 24,
                     ),
                     title: Text(request.title),
                     subtitle: Column(

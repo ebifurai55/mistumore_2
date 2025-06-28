@@ -1,32 +1,90 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 
-class ProfileAvatar extends StatelessWidget {
+class ProfileAvatar extends StatefulWidget {
   final String? imageUrl;
   final double radius;
   final VoidCallback? onTap;
+  final bool enableCacheBusting;
 
   const ProfileAvatar({
     Key? key,
     this.imageUrl,
     this.radius = 20,
     this.onTap,
+    this.enableCacheBusting = true,
   }) : super(key: key);
 
   @override
+  _ProfileAvatarState createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<ProfileAvatar> {
+  bool _hasError = false;
+  String? _errorMessage;
+
+  @override
+  void didUpdateWidget(ProfileAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // URLが変更された場合、エラー状態をリセット
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      setState(() {
+        _hasError = false;
+        _errorMessage = null;
+      });
+    }
+  }
+
+  String? _getCacheBustedUrl(String? url) {
+    if (url == null || url.isEmpty || !widget.enableCacheBusting) {
+      return url;
+    }
+    
+    // Firebase Storage URLの場合はalt=mediaパラメータがある
+    if (url.contains('alt=media')) {
+      // 既にタイムスタンプがある場合は更新、ない場合は追加
+      final uri = Uri.parse(url);
+      final params = Map<String, String>.from(uri.queryParameters);
+      params['t'] = DateTime.now().millisecondsSinceEpoch.toString();
+      
+      return uri.replace(queryParameters: params).toString();
+    }
+    
+    // 他のURLの場合は単純にタイムスタンプを追加
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // デバッグ情報を出力
+    print('ProfileAvatar: imageUrl = ${widget.imageUrl}');
+    print('ProfileAvatar: hasError = $_hasError');
+    print('ProfileAvatar: errorMessage = $_errorMessage');
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: CircleAvatar(
-        radius: radius,
+        radius: widget.radius,
         backgroundColor: Colors.grey[300],
-        backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
-            ? NetworkImage(imageUrl!)
+        backgroundImage: widget.imageUrl != null && 
+                         widget.imageUrl!.isNotEmpty && 
+                         !_hasError
+            ? NetworkImage(_getCacheBustedUrl(widget.imageUrl)!)
             : null,
-        child: imageUrl == null || imageUrl!.isEmpty
+        onBackgroundImageError: (exception, stackTrace) {
+          print('ProfileAvatar: Image load error: $exception');
+          setState(() {
+            _hasError = true;
+            _errorMessage = exception.toString();
+          });
+        },
+        child: (widget.imageUrl == null || 
+                widget.imageUrl!.isEmpty || 
+                _hasError)
             ? Icon(
                 Icons.person,
-                size: radius,
+                size: widget.radius,
                 color: Colors.grey[600],
               )
             : null,
