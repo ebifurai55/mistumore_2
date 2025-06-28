@@ -51,10 +51,62 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
             actions: [
               Padding(
                 padding: EdgeInsets.only(right: 16.0),
-                child: ProfileAvatar(
-                  imageUrl: userProvider.user?.profileImageUrl,
-                  radius: 18,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileEditScreen(),
+                      ),
+                    );
+                  },
+                  child: ProfileAvatar(
+                    imageUrl: userProvider.user?.profileImageUrl,
+                    radius: 18,
+                  ),
                 ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'profile') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileEditScreen(),
+                      ),
+                    );
+                  } else if (value == 'logout') {
+                    await userProvider.signOut();
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(),
+                      ),
+                    );
+                  }
+                },
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<String>(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person),
+                        SizedBox(width: 8),
+                        Text('プロフィール編集'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout),
+                        SizedBox(width: 8),
+                        Text('ログアウト'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
             bottom: TabBar(
@@ -157,11 +209,30 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
                 return Card(
                   margin: EdgeInsets.all(8.0),
                   child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.blue.shade100,
+                      child: Icon(
+                        _getCategoryIcon(request.category),
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
                     title: Text(request.title),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(request.description),
+                        Text(
+                          request.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'カテゴリ: ${request.category.displayName}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                         SizedBox(height: 4),
                         Text(
                           '予算: ¥${(request.budget ?? 0).toStringAsFixed(0)}',
@@ -250,33 +321,53 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
                 final quote = quotes[index];
                 return Card(
                   margin: EdgeInsets.all(8.0),
-                  child: ListTile(
-                    title: Text(quote.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('価格: ¥${quote.price.toStringAsFixed(0)}'),
-                        Text('期間: ${quote.estimatedDays}日'),
-                      ],
-                    ),
-                    trailing: Chip(
-                      label: Text(quote.status.displayName),
-                      backgroundColor: _getStatusColor(quote.status.displayName),
-                    ),
-                    onTap: () async {
-                      // QuoteDetailScreenには依頼情報も必要
-                      final request = await databaseService.getRequest(quote.requestId);
-                      if (request != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => QuoteDetailScreen(
-                              quote: quote,
-                              request: request,
-                            ),
-                          ),
-                        );
-                      }
+                  child: FutureBuilder<UserModel?>(
+                    future: databaseService.getUser(quote.professionalId),
+                    builder: (context, userSnapshot) {
+                      final professional = userSnapshot.data;
+                      
+                      return ListTile(
+                        leading: ProfileAvatar(
+                          imageUrl: professional?.profileImageUrl,
+                          radius: 24,
+                        ),
+                        title: Text(quote.title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (professional != null)
+                              Text(
+                                '専門家: ${professional.displayName}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.blue[700],
+                                ),
+                              ),
+                            SizedBox(height: 4),
+                            Text('価格: ¥${quote.price.toStringAsFixed(0)}'),
+                            Text('期間: ${quote.estimatedDays}日'),
+                          ],
+                        ),
+                        trailing: Chip(
+                          label: Text(quote.status.displayName),
+                          backgroundColor: _getStatusColor(quote.status.displayName),
+                        ),
+                        onTap: () async {
+                          // QuoteDetailScreenには依頼情報も必要
+                          final request = await databaseService.getRequest(quote.requestId);
+                          if (request != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => QuoteDetailScreen(
+                                  quote: quote,
+                                  request: request,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      );
                     },
                   ),
                 );
@@ -347,25 +438,45 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
                 final contract = contracts[index];
                 return Card(
                   margin: EdgeInsets.all(8.0),
-                  child: ListTile(
-                    title: Text(contract.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('価格: ¥${contract.price.toStringAsFixed(0)}'),
-                        Text('期間: ${contract.estimatedDays}日'),
-                      ],
-                    ),
-                    trailing: Chip(
-                      label: Text(_getContractStatusText(contract.status)),
-                      backgroundColor: _getContractStatusColor(contract.status),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ContractScreen(contract: contract),
+                  child: FutureBuilder<UserModel?>(
+                    future: databaseService.getUser(contract.professionalId),
+                    builder: (context, userSnapshot) {
+                      final professional = userSnapshot.data;
+                      
+                      return ListTile(
+                        leading: ProfileAvatar(
+                          imageUrl: professional?.profileImageUrl,
+                          radius: 24,
                         ),
+                        title: Text(contract.title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (professional != null)
+                              Text(
+                                '専門家: ${professional.displayName}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.blue[700],
+                                ),
+                              ),
+                            SizedBox(height: 4),
+                            Text('価格: ¥${contract.price.toStringAsFixed(0)}'),
+                            Text('期間: ${contract.estimatedDays}日'),
+                          ],
+                        ),
+                        trailing: Chip(
+                          label: Text(_getContractStatusText(contract.status)),
+                          backgroundColor: _getContractStatusColor(contract.status),
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ContractScreen(contract: contract),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
@@ -416,6 +527,25 @@ class _ClientHomeScreenState extends State<ClientHomeScreen>
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  IconData _getCategoryIcon(ServiceCategory category) {
+    switch (category) {
+      case ServiceCategory.reform:
+        return Icons.home_repair_service;
+      case ServiceCategory.it:
+        return Icons.computer;
+      case ServiceCategory.photo:
+        return Icons.camera_alt;
+      case ServiceCategory.design:
+        return Icons.design_services;
+      case ServiceCategory.education:
+        return Icons.school;
+      case ServiceCategory.other:
+        return Icons.category;
+      default:
+        return Icons.work;
     }
   }
 } 
