@@ -76,7 +76,7 @@ class _CreateQuoteScreenState extends State<CreateQuoteScreen> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: ProfileAvatar(
-                  imageUrl: userProvider.currentUser?.profileImageUrl,
+                  imageUrl: userProvider.user?.profileImageUrl,
                   radius: 16,
                 ),
               );
@@ -93,8 +93,8 @@ class _CreateQuoteScreenState extends State<CreateQuoteScreen> {
             children: [
               // プロフィール表示
               Consumer<UserProvider>(
-                builder: (context, userProvider, child) {
-                  final user = userProvider.currentUser;
+                              builder: (context, userProvider, child) {
+                final user = userProvider.user;
                   return Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),

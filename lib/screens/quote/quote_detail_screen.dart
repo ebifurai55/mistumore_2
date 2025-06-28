@@ -60,7 +60,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: ProfileAvatar(
-                  imageUrl: userProvider.currentUser?.profileImageUrl,
+                  imageUrl: userProvider.user?.profileImageUrl,
                   radius: 16,
                 ),
               );
@@ -201,7 +201,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
             // アクションボタン（クライアントのみ）
             Consumer<UserProvider>(
               builder: (context, userProvider, child) {
-                if (userProvider.currentUser?.uid != widget.request.clientId) {
+                if (userProvider.user?.uid != widget.request.clientId) {
                   return const SizedBox.shrink();
                 }
 
@@ -249,52 +249,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
               },
             ),
 
-            // クイック返信
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'クイック返信',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, child) {
-                        final isClient = userProvider.currentUser?.uid == widget.request.clientId;
-                        final replies = isClient 
-                            ? QuickReplyTemplate.clientReplies
-                            : QuickReplyTemplate.professionalReplies;
-
-                        return Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: replies.map((reply) {
-                            return SizedBox(
-                              height: 32,
-                              child: OutlinedButton(
-                                onPressed: () => _sendQuickReply(reply),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  minimumSize: Size.zero,
-                                ),
-                                child: Text(
-                                  reply,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // メッセージ機能は将来実装予定
           ],
         ),
       ),
@@ -480,10 +435,5 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     }
   }
 
-  void _sendQuickReply(String reply) {
-    // TODO: メッセージング機能実装時に追加
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「$reply」を送信しました')),
-    );
-  }
+
 }

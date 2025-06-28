@@ -9,6 +9,7 @@ import '../../services/database_service.dart';
 import '../../widgets/profile_avatar.dart';
 
 import '../quote/quote_detail_screen.dart';
+import '../quote/create_quote_screen.dart';
 import '../request/request_detail_screen.dart';
 import '../profile/profile_edit_screen.dart';
 import '../auth/login_screen.dart';
@@ -461,21 +462,41 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
                       ],
                     ),
                   ),
-                  // 見積もり作成は将来画面で行う
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '詳細を確認',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
+                  // 見積もり作成ボタン
+                  if (request.status == RequestStatus.open) ...[
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreateQuoteScreen(request: request),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.description, size: 16),
+                      label: const Text('見積もり作成'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        textStyle: const TextStyle(fontSize: 12),
                       ),
                     ),
-                  ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '詳細を確認',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -919,8 +940,6 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen>
       ),
     );
   }
-
-
 
   double _calculateProgress(ContractModel contract) {
     if (contract.milestones.isEmpty) {
